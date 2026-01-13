@@ -102,11 +102,24 @@ def google_drive_backup():
                 try:
                     print("=== Starting Database Backup ===")
                     db = settings.DATABASES["default"]
+                    # Get port from settings, convert to int if it's a string, default to 5432
+                    port = db.get("PORT", "")
+                    if port:
+                        try:
+                            port = int(port)
+                        except (ValueError, TypeError):
+                            port = 5432
+                    else:
+                        port = 5432
+                    # Get host from settings, default to localhost
+                    host = db.get("HOST", "localhost")
                     dump_postgres_db(
                         db_name=db["NAME"],
                         username=db["USER"],
                         output_file="backupdb.dump",
                         password=db["PASSWORD"],
+                        host=host,
+                        port=port,
                     )
                     upload_file("backupdb.dump", google_drive, gdrive_folder_id)
                     os.remove("backupdb.dump")

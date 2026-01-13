@@ -290,15 +290,35 @@ def initialize_database(request):
     """
     if initialize_database_condition():
         if request.method == "POST":
-            password = request._post.get("password")
-            if DB_INIT_PASSWORD == password:
-                return redirect(initialize_database_user)
+            password = request.POST.get("password", "").strip()
+            # Compare passwords, also strip DB_INIT_PASSWORD in case it has whitespace from env
+            expected_password = str(DB_INIT_PASSWORD).strip() if DB_INIT_PASSWORD else ""
+            if password and expected_password and expected_password == password:
+                # Check if this is an HTMX request
+                if request.headers.get("HX-Request"):
+                    # For HTMX requests, use HX-Location to make an HTMX GET request
+                    # HX-Location makes an HTMX request (not a full page navigation)
+                    response = HttpResponse()
+                    redirect_url = reverse("initialize-database-user")
+                    # HX-Location can take a JSON object with path and target
+                    response["HX-Location"] = json.dumps({
+                        "path": redirect_url,
+                        "target": "#ohAuthCard"
+                    })
+                    return response
+                else:
+                    return redirect("initialize-database-user")
             else:
                 messages.warning(
                     request,
                     _("The password you entered is incorrect. Please try again."),
                 )
-                return HttpResponse("<script>window.location.reload()</script>")
+                # Check if this is an HTMX request
+                if request.headers.get("HX-Request"):
+                    # For HTMX, re-render the form with error message
+                    return render(request, "initialize_database/horilla_user.html")
+                else:
+                    return HttpResponse("<script>window.location.reload()</script>")
         return render(request, "initialize_database/horilla_user.html")
     else:
         return redirect("/")
@@ -316,17 +336,16 @@ def initialize_database_user(request):
         HttpResponse: The rendered HTML template for company creation or user signup.
     """
     if request.method == "POST":
-        form_data = request.__dict__.get("_post")
-        username = form_data.get("username")
-        password = form_data.get("password")
-        confirm_password = form_data.get("confirm_password")
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+        confirm_password = request.POST.get("confirm_password")
         if password != confirm_password:
             return render(request, "initialize_database/horilla_user_signup.html")
-        first_name = form_data.get("firstname")
-        last_name = form_data.get("lastname")
-        badge_id = form_data.get("badge_id")
-        email = form_data.get("email")
-        phone = form_data.get("phone")
+        first_name = request.POST.get("firstname")
+        last_name = request.POST.get("lastname")
+        badge_id = request.POST.get("badge_id")
+        email = request.POST.get("email")
+        phone = request.POST.get("phone")
         user = User.objects.filter(username=username).first()
         if user and not hasattr(user, "employee_get"):
             user.delete()
