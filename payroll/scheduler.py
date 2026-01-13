@@ -22,9 +22,19 @@ def expire_contract():
     Finds all active contracts whose end date is earlier than the current date
     and updates their status to "expired".
     """
-    Contract.objects.filter(
-        contract_status="active", contract_end_date__lt=date.today()
-    ).update(contract_status="expired")
+    from django.db import OperationalError
+    
+    try:
+        Contract.objects.filter(
+            contract_status="active", contract_end_date__lt=date.today()
+        ).update(contract_status="expired")
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in expire_contract scheduler: {e}")
     return
 
 
@@ -98,44 +108,53 @@ def auto_payslip_generate():
     Generating payslips for active contract employees
     """
     from base.models import Company
+    from django.db import OperationalError
 
     from .models.models import PayslipAutoGenerate
 
-    # from payroll.models import PayslipAutoGenerate
-    if PayslipAutoGenerate.objects.filter(auto_generate=True).exists():
-        today = date.today()
-        day_today = today.day
-        last_day = (today + timedelta(days=1)).replace(day=1) - timedelta(days=1)
-        auto_payslips = PayslipAutoGenerate.objects.filter(auto_generate=True)
-        companies = []
-        auto_companies = [auto.company_id for auto in auto_payslips]
-        for auto in auto_payslips:
-            generate_day = auto.generate_day
-            if generate_day == "last day":
-                if is_last_day_of_month(today):
-                    companies.append(auto.company_id)
-            else:
-                generate_day = int(generate_day)
-                if generate_day >= last_day.day and day_today == last_day.day:
-                    companies.append(auto.company_id)
-                elif generate_day == day_today:
-                    companies.append(auto.company_id)
+    try:
+        # from payroll.models import PayslipAutoGenerate
+        if PayslipAutoGenerate.objects.filter(auto_generate=True).exists():
+            today = date.today()
+            day_today = today.day
+            last_day = (today + timedelta(days=1)).replace(day=1) - timedelta(days=1)
+            auto_payslips = PayslipAutoGenerate.objects.filter(auto_generate=True)
+            companies = []
+            auto_companies = [auto.company_id for auto in auto_payslips]
+            for auto in auto_payslips:
+                generate_day = auto.generate_day
+                if generate_day == "last day":
+                    if is_last_day_of_month(today):
+                        companies.append(auto.company_id)
+                else:
+                    generate_day = int(generate_day)
+                    if generate_day >= last_day.day and day_today == last_day.day:
+                        companies.append(auto.company_id)
+                    elif generate_day == day_today:
+                        companies.append(auto.company_id)
 
-        companies = list(set(companies))  # Remove duplicates
-        # Check if 'All company' case exists, i.e., None is in companies
-        if companies:
-            if None in companies:
-                company_all = Company.objects.all()
-                generate_companies = []
-                # Append the companies that are not in PayslipAutoGenerate
-                for company in company_all:
-                    if company not in auto_companies:
-                        generate_companies.append(company)
-                generate_payslip(
-                    date=date.today(), companies=generate_companies, all=True
-                )
-            else:
-                generate_payslip(date=date.today(), companies=companies, all=False)
+            companies = list(set(companies))  # Remove duplicates
+            # Check if 'All company' case exists, i.e., None is in companies
+            if companies:
+                if None in companies:
+                    company_all = Company.objects.all()
+                    generate_companies = []
+                    # Append the companies that are not in PayslipAutoGenerate
+                    for company in company_all:
+                        if company not in auto_companies:
+                            generate_companies.append(company)
+                    generate_payslip(
+                        date=date.today(), companies=generate_companies, all=True
+                    )
+                else:
+                    generate_payslip(date=date.today(), companies=companies, all=False)
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in auto_payslip_generate scheduler: {e}")
 
 
 if not any(

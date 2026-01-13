@@ -3,6 +3,7 @@ import sys
 from datetime import timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from django.db import OperationalError
 
 
 def update_experience():
@@ -12,9 +13,18 @@ def update_experience():
     This scheduled task to trigger the experience calculator
     to update the employee work experience
     """
-    queryset = EmployeeWorkInformation.objects.filter(employee_id__is_active=True)
-    for instance in queryset:
-        instance.experience_calculator()
+    try:
+        queryset = EmployeeWorkInformation.objects.filter(employee_id__is_active=True)
+        for instance in queryset:
+            instance.experience_calculator()
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        # Log other errors but don't crash the scheduler
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in update_experience scheduler: {e}")
     return
 
 
@@ -26,31 +36,30 @@ def block_unblock_disciplinary():
     from employee.models import DisciplinaryAction
     from employee.policies import employee_account_block_unblock
 
-    dis_action = DisciplinaryAction.objects.all()
-    for dis in dis_action:
+    try:
+        dis_action = DisciplinaryAction.objects.all()
+        for dis in dis_action:
+            if dis.action.block_option:
+                if dis.action.action_type == "suspension":
+                    if dis.days:
+                        day = dis.days
+                        end_date = dis.start_date + timedelta(days=day)
+                        if (
+                            datetime.date.today() >= dis.start_date
+                            or datetime.date.today() >= end_date
+                        ):
+                            if datetime.date.today() >= dis.start_date:
+                                r = False
+                            if datetime.date.today() >= end_date:
+                                r = True
 
-        if dis.action.block_option:
-            if dis.action.action_type == "suspension":
-                if dis.days:
-                    day = dis.days
-                    end_date = dis.start_date + timedelta(days=day)
-                    if (
-                        datetime.date.today() >= dis.start_date
-                        or datetime.date.today() >= end_date
-                    ):
-                        if datetime.date.today() >= dis.start_date:
-                            r = False
-                        if datetime.date.today() >= end_date:
-                            r = True
-
-                        employees = dis.employee_id.all()
-                        for emp in employees:
-                            employee_account_block_unblock(emp_id=emp.id, result=r)
+                            employees = dis.employee_id.all()
+                            for emp in employees:
+                                employee_account_block_unblock(emp_id=emp.id, result=r)
 
                 if dis.hours:
                     hour_str = dis.hours + ":00"
                     if hour_str > "00:00:00":
-
                         # Checking the date of action date.
                         if datetime.date.today() >= dis.start_date:
 
@@ -128,6 +137,14 @@ def block_unblock_disciplinary():
                     employees = dis.employee_id.all()
                     for emp in employees:
                         employee_account_block_unblock(emp_id=emp.id, result=r)
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        # Log other errors but don't crash the scheduler
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in block_unblock_disciplinary scheduler: {e}")
 
     return
 

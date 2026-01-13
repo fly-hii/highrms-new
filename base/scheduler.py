@@ -111,16 +111,25 @@ def rotate_work_type():
     and redirect to the chunk method to execute.
     """
     from base.models import RotatingWorkTypeAssign
+    from django.db import OperationalError
 
-    rotating_work_types = RotatingWorkTypeAssign.objects.filter(is_active=True)
-    for rotating_work_type in rotating_work_types:
-        based_on = rotating_work_type.based_on
-        if based_on == "after":
-            work_type_rotate_after(rotating_work_type)
-        elif based_on == "weekly":
-            work_type_rotate_weekend(rotating_work_type)
-        elif based_on == "monthly":
-            work_type_rotate_every(rotating_work_type)
+    try:
+        rotating_work_types = RotatingWorkTypeAssign.objects.filter(is_active=True)
+        for rotating_work_type in rotating_work_types:
+            based_on = rotating_work_type.based_on
+            if based_on == "after":
+                work_type_rotate_after(rotating_work_type)
+            elif based_on == "weekly":
+                work_type_rotate_weekend(rotating_work_type)
+            elif based_on == "monthly":
+                work_type_rotate_every(rotating_work_type)
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in rotate_work_type scheduler: {e}")
     return
 
 
@@ -221,31 +230,40 @@ def rotate_shift():
     and redirect to the chunk method to execute.
     """
     from base.models import RotatingShiftAssign
+    from django.db import OperationalError
 
-    rotating_shifts = RotatingShiftAssign.objects.filter(is_active=True)
-    today = datetime.now().date()
-    r_shifts = rotating_shifts.filter(start_date__lte=today)
-    rotating_shifts_modified = None
-    for r_shift in r_shifts:
-        emp_shift = rotating_shifts.filter(
-            employee_id=r_shift.employee_id, start_date__lte=today
-        ).exclude(id=r_shift.id)
-        rotating_shifts_modified = rotating_shifts.exclude(
-            id__in=emp_shift.values_list("id", flat=True)
-        )
-        emp_shift.update(is_active=False)
+    try:
+        rotating_shifts = RotatingShiftAssign.objects.filter(is_active=True)
+        today = datetime.now().date()
+        r_shifts = rotating_shifts.filter(start_date__lte=today)
+        rotating_shifts_modified = None
+        for r_shift in r_shifts:
+            emp_shift = rotating_shifts.filter(
+                employee_id=r_shift.employee_id, start_date__lte=today
+            ).exclude(id=r_shift.id)
+            rotating_shifts_modified = rotating_shifts.exclude(
+                id__in=emp_shift.values_list("id", flat=True)
+            )
+            emp_shift.update(is_active=False)
 
-    for rotating_shift in rotating_shifts_modified:
-        based_on = rotating_shift.based_on
-        # after day condition
-        if based_on == "after":
-            shift_rotate_after_day(rotating_shift, today)
-        # weekly condition
-        elif based_on == "weekly":
-            shift_rotate_weekend(rotating_shift, today)
-        # monthly condition
-        elif based_on == "monthly":
-            shift_rotate_every(rotating_shift, today)
+        for rotating_shift in rotating_shifts_modified:
+            based_on = rotating_shift.based_on
+            # after day condition
+            if based_on == "after":
+                shift_rotate_after_day(rotating_shift, today)
+            # weekly condition
+            elif based_on == "weekly":
+                shift_rotate_weekend(rotating_shift, today)
+            # monthly condition
+            elif based_on == "monthly":
+                shift_rotate_every(rotating_shift, today)
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in rotate_shift scheduler: {e}")
 
     return
 
@@ -257,35 +275,44 @@ def switch_shift():
     from django.contrib.auth.models import User
 
     from base.models import ShiftRequest
+    from django.db import OperationalError
 
-    today = date.today()
+    try:
+        today = date.today()
 
-    shift_requests = ShiftRequest.objects.filter(
-        canceled=False, approved=True, requested_date__exact=today, shift_changed=False
-    )
-    if shift_requests:
-        for request in shift_requests:
-            work_info = request.employee_id.employee_work_info
-            # updating requested shift to the employee work information.
-            work_info.shift_id = request.shift_id
-            work_info.save()
-            request.approved = True
-            request.shift_changed = True
-            request.save()
-            bot = User.objects.filter(username="Horilla Bot").first()
-            if bot is not None:
-                employee = request.employee_id
-                notify.send(
-                    bot,
-                    recipient=employee.employee_user_id,
-                    verb="Shift Changes notification",
-                    verb_ar="التحول تغيير الإخطار",
-                    verb_de="Benachrichtigung über Schichtänderungen",
-                    verb_es="Notificación de cambios de turno",
-                    verb_fr="Notification des changements de quart de travail",
-                    icon="refresh",
-                    redirect=reverse("employee-profile"),
-                )
+        shift_requests = ShiftRequest.objects.filter(
+            canceled=False, approved=True, requested_date__exact=today, shift_changed=False
+        )
+        if shift_requests:
+            for request in shift_requests:
+                work_info = request.employee_id.employee_work_info
+                # updating requested shift to the employee work information.
+                work_info.shift_id = request.shift_id
+                work_info.save()
+                request.approved = True
+                request.shift_changed = True
+                request.save()
+                bot = User.objects.filter(username="Horilla Bot").first()
+                if bot is not None:
+                    employee = request.employee_id
+                    notify.send(
+                        bot,
+                        recipient=employee.employee_user_id,
+                        verb="Shift Changes notification",
+                        verb_ar="التحول تغيير الإخطار",
+                        verb_de="Benachrichtigung über Schichtänderungen",
+                        verb_es="Notificación de cambios de turno",
+                        verb_fr="Notification des changements de quart de travail",
+                        icon="refresh",
+                        redirect=reverse("employee-profile"),
+                    )
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in switch_shift scheduler: {e}")
     return
 
 
@@ -296,38 +323,47 @@ def undo_shift():
     from django.contrib.auth.models import User
 
     from base.models import ShiftRequest
+    from django.db import OperationalError
 
-    today = date.today()
-    # here will get all the active shift requests
-    shift_requests = ShiftRequest.objects.filter(
-        canceled=False,
-        approved=True,
-        requested_till__lt=today,
-        is_active=True,
-        shift_changed=True,
-    )
-    if shift_requests:
-        for request in shift_requests:
-            work_info = request.employee_id.employee_work_info
-            work_info.shift_id = request.previous_shift_id
-            work_info.save()
-            # making the instance in-active
-            request.is_active = False
-            request.save()
-            bot = User.objects.filter(username="Horilla Bot").first()
-            if bot is not None:
-                employee = request.employee_id
-                notify.send(
-                    bot,
-                    recipient=employee.employee_user_id,
-                    verb="Shift changes notification, Requested date expired.",
-                    verb_ar="التحول يغير الإخطار ، التاريخ المطلوب انتهت صلاحيته.",
-                    verb_de="Benachrichtigung über Schichtänderungen, gewünschtes Datum abgelaufen.",
-                    verb_es="Notificación de cambios de turno, Fecha solicitada vencida.",
-                    verb_fr="Notification de changement d'équipe, la date demandée a expiré.",
-                    icon="refresh",
-                    redirect=reverse("employee-profile"),
-                )
+    try:
+        today = date.today()
+        # here will get all the active shift requests
+        shift_requests = ShiftRequest.objects.filter(
+            canceled=False,
+            approved=True,
+            requested_till__lt=today,
+            is_active=True,
+            shift_changed=True,
+        )
+        if shift_requests:
+            for request in shift_requests:
+                work_info = request.employee_id.employee_work_info
+                work_info.shift_id = request.previous_shift_id
+                work_info.save()
+                # making the instance in-active
+                request.is_active = False
+                request.save()
+                bot = User.objects.filter(username="Horilla Bot").first()
+                if bot is not None:
+                    employee = request.employee_id
+                    notify.send(
+                        bot,
+                        recipient=employee.employee_user_id,
+                        verb="Shift changes notification, Requested date expired.",
+                        verb_ar="التحول يغير الإخطار ، التاريخ المطلوب انتهت صلاحيته.",
+                        verb_de="Benachrichtigung über Schichtänderungen, gewünschtes Datum abgelaufen.",
+                        verb_es="Notificación de cambios de turno, Fecha solicitada vencida.",
+                        verb_fr="Notification de changement d'équipe, la date demandée a expiré.",
+                        icon="refresh",
+                        redirect=reverse("employee-profile"),
+                    )
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in undo_shift scheduler: {e}")
     return
 
 
@@ -338,36 +374,45 @@ def switch_work_type():
     from django.contrib.auth.models import User
 
     from base.models import WorkTypeRequest
+    from django.db import OperationalError
 
-    today = date.today()
-    work_type_requests = WorkTypeRequest.objects.filter(
-        canceled=False,
-        approved=True,
-        requested_date__exact=today,
-        work_type_changed=False,
-    )
-    for request in work_type_requests:
-        work_info = request.employee_id.employee_work_info
-        # updating requested work type to the employee work information.
-        work_info.work_type_id = request.work_type_id
-        work_info.save()
-        request.approved = True
-        request.work_type_changed = True
-        request.save()
-        bot = User.objects.filter(username="Horilla Bot").first()
-        if bot is not None:
-            employee = request.employee_id
-            notify.send(
-                bot,
-                recipient=employee.employee_user_id,
-                verb="Work Type Changes notification",
-                verb_ar="إخطار تغييرات نوع العمل",
-                verb_de="Benachrichtigung über Änderungen des Arbeitstyps",
-                verb_es="Notificación de cambios de tipo de trabajo",
-                verb_fr="Notification de changement de type de travail",
-                icon="swap-horizontal",
-                redirect=reverse("employee-profile"),
-            )
+    try:
+        today = date.today()
+        work_type_requests = WorkTypeRequest.objects.filter(
+            canceled=False,
+            approved=True,
+            requested_date__exact=today,
+            work_type_changed=False,
+        )
+        for request in work_type_requests:
+            work_info = request.employee_id.employee_work_info
+            # updating requested work type to the employee work information.
+            work_info.work_type_id = request.work_type_id
+            work_info.save()
+            request.approved = True
+            request.work_type_changed = True
+            request.save()
+            bot = User.objects.filter(username="Horilla Bot").first()
+            if bot is not None:
+                employee = request.employee_id
+                notify.send(
+                    bot,
+                    recipient=employee.employee_user_id,
+                    verb="Work Type Changes notification",
+                    verb_ar="إخطار تغييرات نوع العمل",
+                    verb_de="Benachrichtigung über Änderungen des Arbeitstyps",
+                    verb_es="Notificación de cambios de tipo de trabajo",
+                    verb_fr="Notification de changement de type de travail",
+                    icon="swap-horizontal",
+                    redirect=reverse("employee-profile"),
+                )
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in switch_work_type scheduler: {e}")
     return
 
 
@@ -378,61 +423,79 @@ def undo_work_type():
     from django.contrib.auth.models import User
 
     from base.models import WorkTypeRequest
+    from django.db import OperationalError
 
-    today = date.today()
-    # here will get all the active work type requests
-    work_type_requests = WorkTypeRequest.objects.filter(
-        canceled=False,
-        approved=True,
-        requested_till__lt=today,
-        is_active=True,
-        work_type_changed=True,
-    )
-    for request in work_type_requests:
-        work_info = request.employee_id.employee_work_info
-        # updating employee work information's work type to previous work type
-        work_info.work_type_id = request.previous_work_type_id
-        work_info.save()
-        # making the instance is in-active
-        request.is_active = False
-        request.save()
-        bot = User.objects.filter(username="Horilla Bot").first()
-        if bot is not None:
-            employee = request.employee_id
-            notify.send(
-                bot,
-                recipient=employee.employee_user_id,
-                verb="Work type changes notification, Requested date expired.",
-                verb_ar="إعلام بتغيير نوع العمل ، انتهاء صلاحية التاريخ المطلوب.",
-                verb_de="Benachrichtigung über Änderungen des Arbeitstyps, angefordertes Datum abgelaufen.",
-                verb_es="Notificación de cambios de tipo de trabajo, fecha solicitada vencida.",
-                verb_fr="Notification de changement de type de travail, la date demandée a expiré.",
-                icon="swap-horizontal",
-                redirect=reverse("employee-profile"),
-            )
+    try:
+        today = date.today()
+        # here will get all the active work type requests
+        work_type_requests = WorkTypeRequest.objects.filter(
+            canceled=False,
+            approved=True,
+            requested_till__lt=today,
+            is_active=True,
+            work_type_changed=True,
+        )
+        for request in work_type_requests:
+            work_info = request.employee_id.employee_work_info
+            # updating employee work information's work type to previous work type
+            work_info.work_type_id = request.previous_work_type_id
+            work_info.save()
+            # making the instance is in-active
+            request.is_active = False
+            request.save()
+            bot = User.objects.filter(username="Horilla Bot").first()
+            if bot is not None:
+                employee = request.employee_id
+                notify.send(
+                    bot,
+                    recipient=employee.employee_user_id,
+                    verb="Work type changes notification, Requested date expired.",
+                    verb_ar="إعلام بتغيير نوع العمل ، انتهاء صلاحية التاريخ المطلوب.",
+                    verb_de="Benachrichtigung über Änderungen des Arbeitstyps, angefordertes Datum abgelaufen.",
+                    verb_es="Notificación de cambios de tipo de trabajo, fecha solicitada vencida.",
+                    verb_fr="Notification de changement de type de travail, la date demandée a expiré.",
+                    icon="swap-horizontal",
+                    redirect=reverse("employee-profile"),
+                )
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in undo_work_type scheduler: {e}")
     return
 
 
 def recurring_holiday():
     from .models import Holidays
+    from django.db import OperationalError
 
-    recurring_holidays = Holidays.objects.filter(recurring=True)
-    today = datetime.now()
-    # Looping through all recurring holiday
-    for recurring_holiday in recurring_holidays:
-        start_date = recurring_holiday.start_date
-        end_date = recurring_holiday.end_date
-        new_start_date = date(start_date.year + 1, start_date.month, start_date.day)
-        new_end_date = date(end_date.year + 1, end_date.month, end_date.day)
-        # Checking that end date is not none
-        if end_date is None:
-            # checking if that start date is day before today
-            if start_date == (today - timedelta(days=1)).date():
+    try:
+        recurring_holidays = Holidays.objects.filter(recurring=True)
+        today = datetime.now()
+        # Looping through all recurring holiday
+        for recurring_holiday in recurring_holidays:
+            start_date = recurring_holiday.start_date
+            end_date = recurring_holiday.end_date
+            new_start_date = date(start_date.year + 1, start_date.month, start_date.day)
+            new_end_date = date(end_date.year + 1, end_date.month, end_date.day)
+            # Checking that end date is not none
+            if end_date is None:
+                # checking if that start date is day before today
+                if start_date == (today - timedelta(days=1)).date():
+                    recurring_holiday.start_date = new_start_date
+            elif end_date == (today - timedelta(days=1)).date():
                 recurring_holiday.start_date = new_start_date
-        elif end_date == (today - timedelta(days=1)).date():
-            recurring_holiday.start_date = new_start_date
-            recurring_holiday.end_date = new_end_date
-        recurring_holiday.save()
+                recurring_holiday.end_date = new_end_date
+            recurring_holiday.save()
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in recurring_holiday scheduler: {e}")
 
 
 if not any(

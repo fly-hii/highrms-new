@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from dateutil.relativedelta import relativedelta
+from django.db import OperationalError
 
 today = datetime.now()
 
@@ -16,16 +17,24 @@ def recruitment_close():
     """
     from recruitment.models import Recruitment
 
-    today_date = today.date()
+    try:
+        today_date = today.date()
 
-    recruitments = Recruitment.objects.filter(closed=False)
+        recruitments = Recruitment.objects.filter(closed=False)
 
-    for rec in recruitments:
-        if rec.end_date:
-            if rec.end_date == today_date:
-                rec.closed = True
-                rec.is_published = False
-                rec.save()
+        for rec in recruitments:
+            if rec.end_date:
+                if rec.end_date == today_date:
+                    rec.closed = True
+                    rec.is_published = False
+                    rec.save()
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in recruitment_close scheduler: {e}")
 
 
 def candidate_convert():
@@ -36,15 +45,23 @@ def candidate_convert():
 
     from recruitment.models import Candidate
 
-    candidates = Candidate.objects.filter(is_active=True)
-    mails = list(Candidate.objects.values_list("email", flat=True))
-    existing_emails = list(
-        User.objects.filter(username__in=mails).values_list("email", flat=True)
-    )
-    for cand in candidates:
-        if cand.email in existing_emails:
-            cand.converted = True
-            cand.save()
+    try:
+        candidates = Candidate.objects.filter(is_active=True)
+        mails = list(Candidate.objects.values_list("email", flat=True))
+        existing_emails = list(
+            User.objects.filter(username__in=mails).values_list("email", flat=True)
+        )
+        for cand in candidates:
+            if cand.email in existing_emails:
+                cand.converted = True
+                cand.save()
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in candidate_convert scheduler: {e}")
 
 
 if not any(

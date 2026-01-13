@@ -4,6 +4,7 @@ import sys
 import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from django.conf import settings
+from django.db import OperationalError
 
 from base.backends import logger
 
@@ -12,39 +13,45 @@ def create_work_record():
     from attendance.models import WorkRecords
     from employee.models import Employee
 
-    date = datetime.datetime.today()
-    work_records = WorkRecords.objects.filter(date=date).values_list(
-        "employee_id", flat=True
-    )
-    employees = Employee.objects.exclude(id__in=work_records)
-    records_to_create = []
+    try:
+        date = datetime.datetime.today()
+        work_records = WorkRecords.objects.filter(date=date).values_list(
+            "employee_id", flat=True
+        )
+        employees = Employee.objects.exclude(id__in=work_records)
+        records_to_create = []
 
-    for employee in employees:
-        try:
-            shift_schedule = employee.get_shift_schedule()
-            if shift_schedule is None:
-                continue
+        for employee in employees:
+            try:
+                shift_schedule = employee.get_shift_schedule()
+                if shift_schedule is None:
+                    continue
 
-            shift = employee.get_shift()
-            record = WorkRecords(
-                employee_id=employee,
-                date=date,
-                work_record_type="DFT",
-                shift_id=shift,
-                message="",
-            )
-            records_to_create.append(record)
-        except Exception as e:
-            logger.error(f"Error preparing work record for {employee}: {e}")
+                shift = employee.get_shift()
+                record = WorkRecords(
+                    employee_id=employee,
+                    date=date,
+                    work_record_type="DFT",
+                    shift_id=shift,
+                    message="",
+                )
+                records_to_create.append(record)
+            except Exception as e:
+                logger.error(f"Error preparing work record for {employee}: {e}")
 
-    if records_to_create:
-        try:
-            WorkRecords.objects.bulk_create(records_to_create)
-            print(f"Created {len(records_to_create)} work records for {date}.")
-        except Exception as e:
-            logger.error(f"Failed to bulk create work records: {e}")
-    else:
-        print(f"No new work records to create for {date}.")
+        if records_to_create:
+            try:
+                WorkRecords.objects.bulk_create(records_to_create)
+                print(f"Created {len(records_to_create)} work records for {date}.")
+            except Exception as e:
+                logger.error(f"Failed to bulk create work records: {e}")
+        else:
+            print(f"No new work records to create for {date}.")
+    except OperationalError:
+        # Database tables not ready yet (migrations not completed)
+        pass
+    except Exception as e:
+        logger.error(f"Error in create_work_record scheduler: {e}")
 
 
 if not any(
