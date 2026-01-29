@@ -1,0 +1,151 @@
+{% extends 'index.html' %}
+{% load i18n %}
+{% load static %}
+{% block content %}
+
+<div class="oh-wrapper">
+    <div class="oh-main">
+        <div class="oh-main__titlebar">
+            <div class="oh-main__titlebar-title fw-bold mb-0">
+                <h2 class="oh-main__titlebar-title fw-bold mb-0">{% trans "Daily Activity Reports" %}</h2>
+            </div>
+        </div>
+        
+        <div class="oh-main__body">
+            <!-- Filters -->
+            <div class="oh-card">
+                <div class="oh-card__body">
+                    <form method="get" class="d-flex flex-wrap gap-3 align-items-end">
+                        <div class="oh-input-group">
+                            <label class="oh-label">{% trans "Employee" %}</label>
+                            {{ filter_form.employee_id }}
+                        </div>
+                        <div class="oh-input-group">
+                            <label class="oh-label">{% trans "Date From" %}</label>
+                            {{ filter_form.report_date_from }}
+                        </div>
+                        <div class="oh-input-group">
+                            <label class="oh-label">{% trans "Date To" %}</label>
+                            {{ filter_form.report_date_to }}
+                        </div>
+                        <div class="oh-input-group">
+                            <button type="submit" class="oh-btn oh-btn--secondary">
+                                <ion-icon name="filter-outline"></ion-icon>
+                                {% trans "Filter" %}
+                            </button>
+                        </div>
+                        {% if date_from and date_to %}
+                        <div class="oh-input-group">
+                            <a href="{% url 'activity_monitoring:download-summary' %}?date_from={{ date_from }}&date_to={{ date_to }}{% if employee_id %}&employee_ids={{ employee_id }}{% endif %}" 
+                               class="oh-btn oh-btn--success">
+                                <ion-icon name="download-outline"></ion-icon>
+                                {% trans "Download CSV" %}
+                            </a>
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            {% if chart_html %}
+            <div class="oh-card mt-3">
+                <div class="oh-card__body">
+                    <h3 class="oh-card__title">{% trans "Productivity Analysis" %}</h3>
+                    {{ chart_html|safe }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if domain_chart_html %}
+            <div class="oh-card mt-3">
+                <div class="oh-card__body">
+                    <h3 class="oh-card__title">{% trans "Domain Usage Distribution" %}</h3>
+                    {{ domain_chart_html|safe }}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Reports Table -->
+            <div class="oh-card mt-3">
+                <div class="oh-card__body">
+                    <div class="oh-table">
+                        <table class="oh-table__table">
+                            <thead class="oh-table__head">
+                                <tr>
+                                    <th>{% trans "Employee Name" %}</th>
+                                    <th>{% trans "Date" %}</th>
+                                    <th>{% trans "Total Work Time" %}</th>
+                                    <th>{% trans "Productive Time" %}</th>
+                                    <th>{% trans "Idle Time" %}</th>
+                                    <th>{% trans "Violations" %}</th>
+                                    <th>{% trans "Productivity %" %}</th>
+                                    <th>{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="oh-table__body">
+                                {% for report in reports %}
+                                <tr>
+                                    <td>{{ report.employee_id.get_full_name }}</td>
+                                    <td>{{ report.report_date|date:"Y-m-d" }}</td>
+                                    <td>{{ report.total_work_time|floatformat:0 }}s</td>
+                                    <td>{{ report.productive_time|floatformat:0 }}s</td>
+                                    <td>{{ report.idle_time|floatformat:0 }}s</td>
+                                    <td>
+                                        {% if report.violation_count > 0 %}
+                                        <span class="oh-badge oh-badge--danger">{{ report.violation_count }}</span>
+                                        {% else %}
+                                        <span class="oh-badge oh-badge--success">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ report.get_productivity_percentage|floatformat:2 }}%</td>
+                                    <td>
+                                        <a href="{% url 'activity_monitoring:employee-report' report.employee_id.id %}" 
+                                           class="oh-btn oh-btn--light-bkg w-50">
+                                            <ion-icon name="eye-outline"></ion-icon>
+                                        </a>
+                                        <a href="{% url 'activity_monitoring:download-daily' %}?date={{ report.report_date|date:'Y-m-d' }}&employee_id={{ report.employee_id.id }}" 
+                                           class="oh-btn oh-btn--light-bkg w-50">
+                                            <ion-icon name="download-outline"></ion-icon>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center">{% trans "No reports found" %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if reports.has_other_pages %}
+                    <div class="oh-pagination">
+                        {% if reports.has_previous %}
+                        <a href="?page={{ reports.previous_page_number }}{% if date_from %}&report_date_from={{ date_from }}{% endif %}{% if date_to %}&report_date_to={{ date_to }}{% endif %}{% if employee_id %}&employee_id={{ employee_id }}{% endif %}" 
+                           class="oh-pagination__link">
+                            <ion-icon name="chevron-back-outline"></ion-icon>
+                        </a>
+                        {% endif %}
+                        
+                        <span class="oh-pagination__page">
+                            {% trans "Page" %} {{ reports.number }} {% trans "of" %} {{ reports.paginator.num_pages }}
+                        </span>
+                        
+                        {% if reports.has_next %}
+                        <a href="?page={{ reports.next_page_number }}{% if date_from %}&report_date_from={{ date_from }}{% endif %}{% if date_to %}&report_date_to={{ date_to }}{% endif %}{% if employee_id %}&employee_id={{ employee_id }}{% endif %}" 
+                           class="oh-pagination__link">
+                            <ion-icon name="chevron-forward-outline"></ion-icon>
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+

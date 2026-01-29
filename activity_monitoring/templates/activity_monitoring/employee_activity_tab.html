@@ -1,0 +1,154 @@
+{% extends 'index.html' %}
+{% load i18n %}
+{% load static %}
+{% block content %}
+
+<div class="oh-wrapper">
+    <div class="oh-main">
+        <div class="oh-main__titlebar">
+            <div class="oh-main__titlebar-title fw-bold mb-0">
+                <h2 class="oh-main__titlebar-title fw-bold mb-0">
+                    {% trans "Activity Monitoring" %} - {{ employee.get_full_name }}
+                </h2>
+            </div>
+        </div>
+        
+        <div class="oh-main__body">
+            <!-- Summary Cards -->
+            <div class="oh-dashboard row">
+                <div class="oh-dashboard__cards row">
+                    <div class="col-12 col-sm-12 col-md-6 col-lg-3">
+                        <div class="oh-card-dashboard oh-card-dashboard--neutral">
+                            <div class="oh-card-dashboard__header">
+                                <span class="oh-card-dashboard__title">{% trans "Last 7 Days - Work Time" %}</span>
+                            </div>
+                            <div class="oh-card-dashboard__body">
+                                <div class="oh-card-dashboard__counts">
+                                    <span class="oh-card-dashboard__count">{{ summary_7_days.total_work_time }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-12 col-md-6 col-lg-3">
+                        <div class="oh-card-dashboard oh-card-dashboard--success">
+                            <div class="oh-card-dashboard__header">
+                                <span class="oh-card-dashboard__title">{% trans "Last 7 Days - Productive" %}</span>
+                            </div>
+                            <div class="oh-card-dashboard__body">
+                                <div class="oh-card-dashboard__counts">
+                                    <span class="oh-card-dashboard__count">{{ summary_7_days.total_productive }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-12 col-md-6 col-lg-3">
+                        <div class="oh-card-dashboard oh-card-dashboard--warning">
+                            <div class="oh-card-dashboard__header">
+                                <span class="oh-card-dashboard__title">{% trans "Last 30 Days - Work Time" %}</span>
+                            </div>
+                            <div class="oh-card-dashboard__body">
+                                <div class="oh-card-dashboard__counts">
+                                    <span class="oh-card-dashboard__count">{{ summary_30_days.total_work_time }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-12 col-md-6 col-lg-3">
+                        <div class="oh-card-dashboard oh-card-dashboard--danger">
+                            <div class="oh-card-dashboard__header">
+                                <span class="oh-card-dashboard__title">{% trans "Total Violations (30 days)" %}</span>
+                            </div>
+                            <div class="oh-card-dashboard__body">
+                                <div class="oh-card-dashboard__counts">
+                                    <span class="oh-card-dashboard__count">{{ summary_30_days.total_violations }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Productivity Percentage -->
+            <div class="oh-card mt-3">
+                <div class="oh-card__body">
+                    <h3 class="oh-card__title">{% trans "Productivity Percentage (Last 30 Days)" %}</h3>
+                    <div class="oh-progress">
+                        <div class="oh-progress__bar" style="width: {{ summary_30_days.productivity_percentage }}%">
+                            {{ summary_30_days.productivity_percentage|floatformat:2 }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Violations -->
+            {% if recent_reports %}
+            <div class="oh-card mt-3">
+                <div class="oh-card__body">
+                    <h3 class="oh-card__title">{% trans "Recent Policy Violations" %}</h3>
+                    <div class="oh-table">
+                        <table class="oh-table__table">
+                            <thead class="oh-table__head">
+                                <tr>
+                                    <th>{% trans "Date" %}</th>
+                                    <th>{% trans "Violations" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="oh-table__body">
+                                {% for report in recent_reports %}
+                                <tr>
+                                    <td>{{ report.report_date|date:"Y-m-d" }}</td>
+                                    <td>
+                                        <span class="oh-badge oh-badge--danger">{{ report.violation_count }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Top Domains -->
+            {% if top_domains %}
+            <div class="oh-card mt-3">
+                <div class="oh-card__body">
+                    <h3 class="oh-card__title">{% trans "Top Domains (Last 30 Days)" %}</h3>
+                    <div class="oh-table">
+                        <table class="oh-table__table">
+                            <thead class="oh-table__head">
+                                <tr>
+                                    <th>{% trans "Domain" %}</th>
+                                    <th>{% trans "Time Spent (seconds)" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="oh-table__body">
+                                {% for domain, time_spent in top_domains %}
+                                <tr>
+                                    <td>{{ domain }}</td>
+                                    <td>{{ time_spent|floatformat:0 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Link to Full Report -->
+            <div class="oh-card mt-3">
+                <div class="oh-card__body">
+                    <a href="{% url 'activity_monitoring:employee-report' employee.id %}" 
+                       class="oh-btn oh-btn--secondary">
+                        <ion-icon name="eye-outline"></ion-icon>
+                        {% trans "View Full Activity Report" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+

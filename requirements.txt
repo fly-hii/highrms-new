@@ -53,6 +53,7 @@ openpyxl
 oscrypto
 pandas
 pdfkit
+plotly
 pillow
 pycparser
 pyHanko

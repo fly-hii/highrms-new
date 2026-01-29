@@ -49,8 +49,8 @@ def menu_accessibilty(
 ) -> bool:
     user = request.user
     # Project menu disabled for admins - to re-enable, comment out the next 2 lines
-    if user.is_superuser:
-        return False
+    # if user.is_superuser:
+    #     return False
     return (
         "project" in user_perms
         # or has_subordinates(request)

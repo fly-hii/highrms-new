@@ -488,3 +488,7 @@ For additional support:
 *This guide covers the main features and workflows of Horilla HRMS. Specific features may vary based on your system configuration and permissions.*
 
 
+
+
+
+

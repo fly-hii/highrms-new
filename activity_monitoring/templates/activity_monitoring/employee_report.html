@@ -1,0 +1,208 @@
+{% extends 'index.html' %}
+{% load i18n %}
+{% load static %}
+{% block content %}
+
+<div class="oh-wrapper">
+    <div class="oh-main">
+        <div class="oh-main__titlebar">
+            <div class="oh-main__titlebar-title fw-bold mb-0">
+                <h2 class="oh-main__titlebar-title fw-bold mb-0">
+                    {% trans "Activity Report" %} - {{ employee.get_full_name }}
+                </h2>
+            </div>
+        </div>
+        
+        <div class="oh-main__body">
+            <!-- Summary Cards -->
+            <div class="oh-dashboard row">
+                <div class="oh-dashboard__cards row">
+                    <div class="col-12 col-sm-12 col-md-6 col-lg-3">
+                        <div class="oh-card-dashboard oh-card-dashboard--neutral">
+                            <div class="oh-card-dashboard__header">
+                                <span class="oh-card-dashboard__title">{% trans "Total Work Time" %}</span>
+                            </div>
+                            <div class="oh-card-dashboard__body">
+                                <div class="oh-card-dashboard__counts">
+                                    <span class="oh-card-dashboard__count">{{ total_work_time }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-12 col-md-6 col-lg-3">
+                        <div class="oh-card-dashboard oh-card-dashboard--success">
+                            <div class="oh-card-dashboard__header">
+                                <span class="oh-card-dashboard__title">{% trans "Productive Time" %}</span>
+                            </div>
+                            <div class="oh-card-dashboard__body">
+                                <div class="oh-card-dashboard__counts">
+                                    <span class="oh-card-dashboard__count">{{ total_productive }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-12 col-md-6 col-lg-3">
+                        <div class="oh-card-dashboard oh-card-dashboard--warning">
+                            <div class="oh-card-dashboard__header">
+                                <span class="oh-card-dashboard__title">{% trans "Idle Time" %}</span>
+                            </div>
+                            <div class="oh-card-dashboard__body">
+                                <div class="oh-card-dashboard__counts">
+                                    <span class="oh-card-dashboard__count">{{ total_idle }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-12 col-md-6 col-lg-3">
+                        <div class="oh-card-dashboard oh-card-dashboard--danger">
+                            <div class="oh-card-dashboard__header">
+                                <span class="oh-card-dashboard__title">{% trans "Policy Violations" %}</span>
+                            </div>
+                            <div class="oh-card-dashboard__body">
+                                <div class="oh-card-dashboard__counts">
+                                    <span class="oh-card-dashboard__count">{{ total_violations }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Productivity Percentage -->
+            <div class="oh-card mt-3">
+                <div class="oh-card__body">
+                    <h3 class="oh-card__title">{% trans "Productivity Percentage" %}</h3>
+                    <div class="oh-progress">
+                        <div class="oh-progress__bar" style="width: {{ productivity_percentage }}%">
+                            {{ productivity_percentage|floatformat:2 }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Date Range Filter -->
+            <div class="oh-card mt-3">
+                <div class="oh-card__body">
+                    <form method="get" class="d-flex flex-wrap gap-3 align-items-end">
+                        <div class="oh-input-group">
+                            <label class="oh-label">{% trans "Date From" %}</label>
+                            <input type="date" name="date_from" value="{{ date_from }}" class="oh-input">
+                        </div>
+                        <div class="oh-input-group">
+                            <label class="oh-label">{% trans "Date To" %}</label>
+                            <input type="date" name="date_to" value="{{ date_to }}" class="oh-input">
+                        </div>
+                        <div class="oh-input-group">
+                            <button type="submit" class="oh-btn oh-btn--secondary">
+                                <ion-icon name="filter-outline"></ion-icon>
+                                {% trans "Filter" %}
+                            </button>
+                        </div>
+                        <div class="oh-input-group">
+                            <a href="{% url 'activity_monitoring:download-employee-report' employee.id %}?date_from={{ date_from }}&date_to={{ date_to }}" 
+                               class="oh-btn oh-btn--success">
+                                <ion-icon name="download-outline"></ion-icon>
+                                {% trans "Download Excel" %}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Trend Chart -->
+            {% if trend_chart_html %}
+            <div class="oh-card mt-3">
+                <div class="oh-card__body">
+                    <h3 class="oh-card__title">{% trans "Productivity Trend" %}</h3>
+                    {{ trend_chart_html|safe }}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Domain Breakdown -->
+            {% if domain_breakdown %}
+            <div class="oh-card mt-3">
+                <div class="oh-card__body">
+                    <h3 class="oh-card__title">{% trans "Domain Usage Breakdown" %}</h3>
+                    <div class="oh-table">
+                        <table class="oh-table__table">
+                            <thead class="oh-table__head">
+                                <tr>
+                                    <th>{% trans "Domain" %}</th>
+                                    <th>{% trans "Active Time" %}</th>
+                                    <th>{% trans "Idle Time" %}</th>
+                                    <th>{% trans "Total Time" %}</th>
+                                    <th>{% trans "Status" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="oh-table__body">
+                                {% for domain, data in domain_breakdown.items %}
+                                <tr>
+                                    <td>{{ domain }}</td>
+                                    <td>{{ data.active|floatformat:0 }}s</td>
+                                    <td>{{ data.idle|floatformat:0 }}s</td>
+                                    <td>{{ data.active|add:data.idle|floatformat:0 }}s</td>
+                                    <td>
+                                        {% if data.allowed %}
+                                        <span class="oh-badge oh-badge--success">{% trans "Allowed" %}</span>
+                                        {% else %}
+                                        <span class="oh-badge oh-badge--danger">{% trans "Blocked" %}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Daily Reports Table -->
+            <div class="oh-card mt-3">
+                <div class="oh-card__body">
+                    <h3 class="oh-card__title">{% trans "Daily Reports" %}</h3>
+                    <div class="oh-table">
+                        <table class="oh-table__table">
+                            <thead class="oh-table__head">
+                                <tr>
+                                    <th>{% trans "Date" %}</th>
+                                    <th>{% trans "Total Work Time" %}</th>
+                                    <th>{% trans "Productive Time" %}</th>
+                                    <th>{% trans "Idle Time" %}</th>
+                                    <th>{% trans "Violations" %}</th>
+                                    <th>{% trans "Productivity %" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="oh-table__body">
+                                {% for report in reports %}
+                                <tr>
+                                    <td>{{ report.report_date|date:"Y-m-d" }}</td>
+                                    <td>{{ report.total_work_time|floatformat:0 }}s</td>
+                                    <td>{{ report.productive_time|floatformat:0 }}s</td>
+                                    <td>{{ report.idle_time|floatformat:0 }}s</td>
+                                    <td>
+                                        {% if report.violation_count > 0 %}
+                                        <span class="oh-badge oh-badge--danger">{{ report.violation_count }}</span>
+                                        {% else %}
+                                        <span class="oh-badge oh-badge--success">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ report.get_productivity_percentage|floatformat:2 }}%</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center">{% trans "No reports found" %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+

@@ -54,11 +54,16 @@ class HorillaCompanyManager(models.Manager):
         if request is not None:
             selected_company = request.session.get("selected_company")
         try:
-            queryset = (
-                queryset.filter(self.model.company_filter)
-                if selected_company != "all" and selected_company
-                else queryset
-            )
+            # Check if company_filter attribute exists (added by CompanyMiddleware)
+            if hasattr(self.model, 'company_filter') and self.model.company_filter is not None:
+                queryset = (
+                    queryset.filter(self.model.company_filter)
+                    if selected_company != "all" and selected_company
+                    else queryset
+                )
+        except AttributeError:
+            # company_filter not set yet by middleware, skip filtering
+            pass
         except Exception as e:
             logger.error(e)
         try:

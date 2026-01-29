@@ -19,6 +19,7 @@ REST_FRAMEWORK_SETTINGS = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "horilla_api.auth.RejectBasicAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",  # Add session auth for browser extensions
     ),
     "PAGE_SIZE": 20,
 }

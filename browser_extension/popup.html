@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Horilla Activity Monitor</title>
+  <style>
+    body {
+      width: 350px;
+      padding: 15px;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      margin: 0;
+    }
+    h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+    }
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 13px;
+    }
+    .status.active {
+      background-color: #4CAF50;
+      color: white;
+    }
+    .status.inactive {
+      background-color: #f44336;
+      color: white;
+    }
+    .status.warning {
+      background-color: #ff9800;
+      color: white;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      background-color: #2196F3;
+      color: white;
+      font-size: 12px;
+    }
+    button:hover {
+      background-color: #0b7dda;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      box-sizing: border-box;
+      font-size: 12px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    #logs {
+      max-height: 150px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 5px;
+      margin-top: 10px;
+      background-color: #f5f5f5;
+      border-radius: 3px;
+      font-size: 10px;
+      font-family: monospace;
+    }
+    .log-entry {
+      padding: 2px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+    .log-info {
+      color: #2196F3;
+    }
+    .log-success {
+      color: #4CAF50;
+    }
+    .log-error {
+      color: #f44336;
+    }
+    .log-warning {
+      color: #ff9800;
+    }
+    .section {
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h3>Horilla Activity Monitor</h3>
+  
+  <div id="status" class="status inactive">Initializing...</div>
+  
+  <div id="configSection" class="section">
+    <label>API Base URL:</label>
+    <input type="text" id="apiUrl" placeholder="http://localhost:8000" value="http://127.0.0.1:8000">
+    <button id="saveConfig">Save & Test Connection</button>
+  </div>
+  
+  <div id="controlSection" class="section" style="display: none;">
+    <button id="startBtn">Start Monitoring</button>
+    <button id="stopBtn">Stop Monitoring</button>
+  </div>
+  
+  <div id="logs" style="display: block; max-height: 200px; overflow-y: auto;"></div>
+  <button id="toggleLogs" style="width: 100%; margin-top: 5px; padding: 5px; font-size: 11px;">Hide Logs</button>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
+
