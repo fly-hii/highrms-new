@@ -1,0 +1,124 @@
+name: HighRMS Backend CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**'
+      - '.github/workflows/highrms-deploy.yml'
+
+env:
+  IMAGE: highrms-backend
+  REGISTRY_HOSTNAME: docker.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    outputs:
+      docker_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY_HOSTNAME }}/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE }}
+          tags: |
+            type=sha
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build & Push Docker Image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Deploy HighRMS to EC2 via AWS SSM
+        run: |
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets "Key=instanceIds,Values=${{ secrets.EC2_INSTANCE_ID }}" \
+            --parameters 'commands=[
+              "cd /home/ubuntu/highrms",
+              "export DOCKER_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}",
+              "export DOCKER_PASSWORD=${{ secrets.DOCKERHUB_PASSWORD }}",
+              "export TAG=${{ needs.build-and-push.outputs.docker_tag }}",
+
+              "echo $DOCKER_PASSWORD | docker login docker.io -u $DOCKER_USERNAME --password-stdin || exit 1",
+
+              "sed -i \"s|image: .*highrms-backend:.*|image: docker.io/$DOCKER_USERNAME/highrms-backend:$TAG|\" docker-compose.yaml",
+
+              "docker-compose pull || exit 1",
+              "docker-compose down",
+              "docker-compose up -d",
+
+              "docker image prune -af || true"
+            ]' \
+            --comment "Deploying HighRMS Backend via GitHub Actions (SHA based image)" \
+            --region ap-south-1
+
+
+
+# name: Docker Build & Push
+
+# on:
+#   push:
+#     branches:
+#       - main   # Trigger on push to main branch
+#   workflow_dispatch: # Allows manual trigger
+
+# jobs:
+#   build-and-push:
+#     runs-on: ubuntu-latest
+
+#     env:
+#       IMAGE_NAME: flyhii/highrms  # Change to your Docker Hub repo name
+
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v3
+
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v2
+
+#       - name: Log in to Docker Hub
+#         uses: docker/login-action@v2
+#         with:
+#           username: ${{ secrets.DOCKERHUB_USERNAME }}
+#           password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+#       - name: Build Docker image
+#         uses: docker/build-push-action@v4
+#         with:
+#           context: .
+#           file: ./Dockerfile
+#           push: true
+#           tags: ${{ env.IMAGE_NAME }}:latest
+
+#       - name: Verify pushed image
+#         run: docker run --rm ${{ env.IMAGE_NAME }}:latest python3 --version
