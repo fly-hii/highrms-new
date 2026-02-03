@@ -5,7 +5,7 @@ set -e
 echo "Waiting for database to be ready..."
 # Wait for PostgreSQL to be ready
 # Use a simple connection test
-until python3 -c "import psycopg2; psycopg2.connect(host='db', database='horilla', user='postgres', password='postgres')" 2>/dev/null; do
+until python3 -c "import psycopg2; psycopg2.connect(host='db', database='highrms', user='postgres', password='postgres')" 2>/dev/null; do
   >&2 echo "PostgreSQL is unavailable - sleeping"
   sleep 1
 done

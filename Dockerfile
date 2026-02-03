@@ -46,7 +46,7 @@ RUN mkdir -p /app/media /app/staticfiles
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/')" || exit 1
+#HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+ # CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/')" || exit 1
 
 CMD ["/bin/bash", "/app/entrypoint.sh"]

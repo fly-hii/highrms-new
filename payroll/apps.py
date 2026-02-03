@@ -3,7 +3,6 @@ App configuration for the 'payroll' app.
 """
 
 from django.apps import AppConfig
-from django.db.models.signals import post_migrate
 
 
 class PayrollConfig(AppConfig):
@@ -15,24 +14,21 @@ class PayrollConfig(AppConfig):
     name = "payroll"
 
     def ready(self) -> None:
-        ready = super().ready()
-        from django.urls import include, path
+        super().ready()
 
+        from django.urls import include, path
         from horilla.horilla_settings import APPS
         from horilla.urls import urlpatterns
-        from payroll import signals
+        from payroll import signals  # noqa: F401
 
-        APPS.append("payroll")
+        # Register payroll app and URLs
+        if "payroll" not in APPS:
+            APPS.append("payroll")
+
         urlpatterns.append(
             path("payroll/", include("payroll.urls.urls")),
         )
-        try:
-            from payroll.scheduler import auto_payslip_generate
 
-            auto_payslip_generate()
-        except:
-            """
-            Migrations are not affected
-            """
-
-        return ready
+        # Scheduler temporarily disabled due to DB startup issues
+        # from payroll.scheduler import auto_payslip_generate
+        # auto_payslip_generate()
